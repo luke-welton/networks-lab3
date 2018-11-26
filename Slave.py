@@ -74,9 +74,8 @@ def main(argv):
 
         # TODO: Validate checksum
 
-        if in_dest == this_rid:
-            # TODO: Display any packet addressed to this node
-            print(incoming_message)
+        if in_dest == this_rid:  # Display any message addressed to this node
+            print(str(in_msg))
         elif in_ttl > 1:
             # TODO: Forward any other packet with TTL > 1
             s_forward = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
