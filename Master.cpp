@@ -202,8 +202,8 @@ unsigned char calculateChecksum(char *dgmIn, int dgmLen) {
   unsigned short sum = 0;// 16b, to handle overflows
   unsigned char result = 0;//8b
   //get a running sum with overflow accounted for.
-  for (i = 0; i < dgmLen; i++) {
-    sum += dgm[i];
+  for (int i = 0; i < dgmLen; i++) {
+    sum += dgmIn[i];
   }
   //add high order overflow bits to low order bits
   result = (sum & 0xFF) + (sum >> 8);
