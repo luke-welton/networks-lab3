@@ -11,11 +11,14 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <ifaddrs.h>
+#include <string>
+#include <iostream>
 
 #define MASTERRID 0
 #define BACKLOG 10	 // how many pending connections queue will hold
 #define MAXDATASIZE 100
 #define GROUPID 13
+#define MAGIC_NUMBER 0x4A6F7921
 
 /*
  * Master.cpp
@@ -38,6 +41,10 @@ void displayBuffer(char *Buffer, int length);
 void initialize();
 void addSlave(unsigned char slaveIP[], int slaveSocketFD);
 unsigned char* getOwnIP();
+
+void promptForMessage();
+void sendMessage(int rID, const std::string& message);
+void listenForMessages();
 
 unsigned char nextSlaveIP[4];
 unsigned char nextRID;
@@ -243,10 +250,10 @@ void initialize() {
 void addSlave(unsigned char slaveIP[], int slaveSocketFD) {
     char toSend[10];
     toSend[0] = GROUPID;
-    toSend[1] = 0x4A;
-    toSend[2] = 0x6F;
-    toSend[3] = 0x79;
-    toSend[4] = 0x21;
+    toSend[1] = MAGIC_NUMBER >> 24 & 0xFF;
+    toSend[2] = MAGIC_NUMBER >> 16 & 0xFF;
+    toSend[3] = MAGIC_NUMBER >> 8 & 0xFF;
+    toSend[4] = MAGIC_NUMBER & 0xFF;
     toSend[5] = nextRID;
 
     for (unsigned i = 0; i < 4; i++) {
@@ -287,4 +294,64 @@ unsigned char* getOwnIP() {
 
     unsigned char *ptr = addr;
     return ptr;
+}
+
+void promptForMessage() {
+    while (true) {
+        std::string message;
+        unsigned char ringToSend = 0;
+
+        bool valid = true;
+        do {
+            std::cout << "Please enter a message to send: ";
+            std::cin >> message;
+
+            if (message.length() >= 64) {
+                std::cout << "That message is too long.\n\n";
+                valid = false;
+            }
+
+            if (valid) {
+                std::cout << "Please enter the rID of the ring to send the message to: ";
+                std::cin >> ringToSend;
+            }
+
+            if (ringToSend >= nextRID) {
+                std::cout << "There is no ring with that rID.\n\n";
+                valid = false;
+            }
+        } while (!valid);
+
+
+        unsigned int messageLength = 9 + (int) message.length();
+        char toSend[messageLength];
+
+        toSend[0] = GROUPID;
+        toSend[1] = MAGIC_NUMBER >> 24 & 0xFF;
+        toSend[2] = MAGIC_NUMBER >> 16 & 0xFF;
+        toSend[3] = MAGIC_NUMBER >> 8 & 0xFF;
+        toSend[4] = MAGIC_NUMBER & 0xFF;
+        toSend[6] = ringToSend;
+        toSend[7] = MASTERRID;
+
+        //TODO: add message to toSend
+
+        toSend[messageLength - 1] = calculateChecksum(toSend, messageLength);
+        break;
+    }
+}
+
+void sendMessage(int rID, const std::string& message) {
+    //send message to nextSlaveIP with rID and the message
+}
+
+void listenForMessages() {
+    while (true) {
+        //listen for messages
+        //once one is received:
+            //if the messages' TTL is 0, discard the message
+            //otherwise decrement it
+            //if the rID = MASTERRID, display the message
+            //if not, send it to nextSlaveIP via sendMessage
+    }
 }
