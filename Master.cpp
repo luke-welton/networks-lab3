@@ -33,6 +33,7 @@
  * Master will not accept requests that are not both 5 bytes and contain the magic number
  *
  */
+unsigned char calculateChecksum(char *dgmIn, int dgmLen);
 void displayBuffer(char *Buffer, int length);
 void initialize();
 void addSlave(unsigned char slaveIP[], int slaveSocketFD);
@@ -197,7 +198,18 @@ int main(int argc, char *argv[])
         close(new_fd);  // parent doesn't need this
     }
 }
-
+unsigned char calculateChecksum(char *dgmIn, int dgmLen) {
+  unsigned short sum = 0;// 16b, to handle overflows
+  unsigned char result = 0;//8b
+  //get a running sum with overflow accounted for.
+  for (i = 0; i < dgmLen; i++) {
+    sum += dgm[i];
+  }
+  //add high order overflow bits to low order bits
+  result = (sum & 0xFF) + (sum >> 8);
+  result = ~result;
+  return result;
+}
 void displayBuffer(char *Buffer, int length){
     int currentByte, column;
 
