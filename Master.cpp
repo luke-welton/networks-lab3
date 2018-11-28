@@ -78,7 +78,7 @@ int main(int argc, char *argv[])
         fprintf(stderr,"usage: Master MasterPort# \n");
         exit(1);
     }
-    
+
     initialize();
 
     memset(&hints, 0, sizeof hints);
@@ -167,10 +167,16 @@ int main(int argc, char *argv[])
                 slaveIP[4 - i] = (unsigned char) (sockIn->sin_addr.s_addr >> (8 * (4 - i)));
             }
             addSlave(slaveIP, new_fd);
-
-
         }
 
+        //once we have one slave in the ring...
+        if (nextRID != MASTERRID) {
+          //TODO: Watch for messages from ring.
+          //TODO: Prompt user for message and RID
+          //TODO: take user input and send message to nextSlaveIP of information
+          // 1B  4B         1B  1B      1B        up to 64B  1B
+          // GID 0X4A6F7921 TTL RIDDest RIDSource Messagem Checksum
+        }
         if (!fork()) {
             close(sockfd);
 
@@ -191,7 +197,6 @@ int main(int argc, char *argv[])
         close(new_fd);  // parent doesn't need this
     }
 }
-
 
 void displayBuffer(char *Buffer, int length){
     int currentByte, column;
@@ -234,12 +239,11 @@ void addSlave(unsigned char slaveIP[], int slaveSocketFD) {
         nextSlaveIP[i] = slaveIP[i]; //go ahead & update nextSlaveIP just so we don't have to loop twice
     }
 
-    //this might need to be changed to UDP
     if (write(slaveSocketFD, toSend, sizeof(toSend)) != sizeof(toSend)) {
          printf("An error occurred while sending to the slave.");
          exit(0);
     }
-    
+
 
     nextRID++;
 }
