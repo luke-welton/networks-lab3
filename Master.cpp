@@ -204,10 +204,13 @@ unsigned char calculateChecksum(char *dgmIn, int dgmLen) {
   //get a running sum with overflow accounted for.
   for (int i = 0; i < dgmLen; i++) {
     sum += dgmIn[i];
+    //printf("%x\n", sum);
   }
   //add high order overflow bits to low order bits
   result = (sum & 0xFF) + (sum >> 8);
+  //printf("%x\n", result);
   result = ~result;
+  //printf("%x\n", result);
   return result;
 }
 void displayBuffer(char *Buffer, int length){
