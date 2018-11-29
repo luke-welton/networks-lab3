@@ -103,7 +103,18 @@ def main(argv):
             if in_dest == this_rid:  # Display any message addressed to this node
                 print(str(in_msg))
             elif in_ttl > 1:
+                in_ttl = in_ttl - 1
+                # TODO: Recalculate checksum
+
                 # TODO: Forward any other packet with TTL > 1
+                forward = ''.join(chr(x) for x in in_gid)
+                forward = forward + ''.join(chr(x) for x in in_magic)
+                forward = forward + ''.join(chr(x) for x in in_ttl)
+                forward = forward + ''.join(chr(x) for x in in_dest)
+                forward = forward + ''.join(chr(x) for x in in_src)
+                forward = forward + ''.join(chr(x) for x in in_msg)
+                forward = forward + ''.join(chr(x) for x in in_check)
+
                 s_forward = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 s_forward.connect((next_slave_pretty, int(10010 + master_gid * 5 + this_rid - 1)))
 
