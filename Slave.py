@@ -27,9 +27,11 @@ def main(argv):
     request = ''.join(chr(x) for x in [13, 0x4A, 0x6F, 0x79, 0x21])
     s_join.sendall(request)
 
-    response = s.recv(4096)
+    response = s_join.recv(4096)
+    s_join.close()
 
     print(response)
+
     # Set self as slave node on ring and get ring ID
     master_gid = byte_to_int(response[0])
     magic_number = str(response[1]) + str(response[2]) + str(response[3]) + str(response[4])
@@ -90,6 +92,7 @@ def main(argv):
         # Forwarding server
         s_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s_server.bind(('', int(10010 + master_gid * 5 + this_rid)))
+        s_server.listen(5)
         while True:
             incoming_message, address = s_server.recvfrom(4096)
             in_gid = incoming_message[0]
@@ -141,6 +144,7 @@ def main(argv):
                     s_forward = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                     s_forward.connect((next_slave_pretty, int(10010 + master_gid * 5 + this_rid - 1)))
                     s_forward.sendall(forward)
+                    s_forward.close()
 
 def checksum_add(arg1, arg2):
     sum = arg1 + arg2
@@ -148,7 +152,6 @@ def checksum_add(arg1, arg2):
         sum = sum - 0x100
         sum = sum + 0x1
     return sum
-
 
 
 if __name__ == '__main__':
