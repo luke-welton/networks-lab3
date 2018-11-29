@@ -24,8 +24,8 @@ def main(argv):
     s_join = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     s_join.connect((master_hostname, int(master_port)))
     
-    request = ''.join(chr(x) for x in [13, 0x4A, 0x6F, 0x79, 0x21])
-    s_join.sendall(request)
+    request = ''.join(chr(x) for x in [0x0D, 0x4A, 0x6F, 0x79, 0x21])
+    s_join.sendall(request.encode())
 
     response = s_join.recv(4096)
     s_join.close()
@@ -95,7 +95,8 @@ def main(argv):
         s_server.bind(('', int(10010 + master_gid * 5 + this_rid)))
         s_server.listen(5)
         while True:
-            incoming_message, address = s_server.recvfrom(4096)
+            conn, address = s_server.accept()
+            incoming_message, address = conn.recvfrom(4096)
             in_gid = incoming_message[0]
             in_magic = str(incoming_message[1]) + str(incoming_message[2]) + str(incoming_message[3]) + str(incoming_message[4])
             in_ttl = byte_to_int(incoming_message[5])
@@ -156,7 +157,5 @@ def checksum_add(arg1, arg2):
 
 
 if __name__ == '__main__':
-
-    print(byte_to_int(''))
 
     main(sys.argv)
