@@ -12,6 +12,14 @@ def byte_to_int(byte):
     return int(integer)
 
 
+def int_to_byte(value, length):
+    result = []
+    for i in range(0, length):
+        result.append(value >> (i * 8) & 0xff)
+
+    result.reverse()
+    return result
+
 def main(argv):
     try:
         master_hostname = argv[1]
@@ -79,10 +87,10 @@ def main(argv):
 
             new_message = ''.join(chr(x) for x in [0x0D, 0x4A, 0x6F, 0x79, 0x21])  # This GID, Magic Number
             new_message = new_message + ''.join(chr(x) for x in [0xFF])  # TTL
-            new_message = new_message + ''.join(chr(x) for x in new_rid) # RID Destination
-            new_message = new_message + ''.join(chr(x) for x in this_rid)  # RID Source
+            new_message = new_message + ''.join(chr(x) for x in int_to_byte(new_rid, 1)) # RID Destination
+            new_message = new_message + ''.join(chr(x) for x in int_to_byte(this_rid, 1))  # RID Source
             new_message = new_message + ''.join(chr(x) for x in raw_message)  # Message
-            new_message = new_message + ''.join(chr(x) for x in sum)  # Checksum
+            new_message = new_message + ''.join(chr(x) for x in int_to_byte(sum, 1))  # Checksum
 
             s_send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s_send.connect((next_slave_pretty, int(10010 + master_gid * 5 + this_rid - 1)))
@@ -93,10 +101,9 @@ def main(argv):
         # Forwarding server
         s_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s_server.bind(('', int(10010 + master_gid * 5 + this_rid)))
-        s_server.listen(5)
+
         while True:
-            conn, address = s_server.accept()
-            incoming_message, address = conn.recvfrom(4096)
+            incoming_message, address = s_server.recvfrom(4096)
             in_gid = incoming_message[0]
             in_magic = str(incoming_message[1]) + str(incoming_message[2]) + str(incoming_message[3]) + str(incoming_message[4])
             in_ttl = byte_to_int(incoming_message[5])
