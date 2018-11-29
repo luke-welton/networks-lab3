@@ -13,6 +13,7 @@
 #include <ifaddrs.h>
 #include <string>
 #include <iostream>
+#include <thread>
 
 #define MASTERRID 0
 #define BACKLOG 10	 // how many pending connections queue will hold
@@ -88,6 +89,11 @@ int main(int argc, char *argv[])
     }
 
     initialize();
+    //this thread listens for datagrams from previous node
+    std::thread listenerThread (listenForMessages);
+    //this thread asks user for message to send and a destination node
+    //this will continue to happen for the life of the master.
+    std::thread promptingUserThread (promptForMessage);
 
     memset(&hints, 0, sizeof hints);
     hints.ai_family = AF_UNSPEC;
