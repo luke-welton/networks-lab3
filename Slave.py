@@ -102,7 +102,7 @@ def main(argv):
                 in_msg = in_msg + incoming_message[i]
             in_check = incoming_message[len(incoming_message) - 1]
 
-            # TODO: Validate checksum
+            # Validate checksum
             sum = checksum_add(int(incoming_message[0]), int(incoming_message[1]))
             sum = checksum_add(sum, byte_to_int(incoming_message[2]))
             sum = checksum_add(sum, byte_to_int(incoming_message[3]))
