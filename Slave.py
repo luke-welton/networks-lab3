@@ -54,17 +54,33 @@ def main(argv):
             except:
                 new_rid = ""
                 print("Invalid Ring ID")
-        raw_message = raw_input('Enter your message: ')
+        raw_message = ""
+        while raw_message == "":
+            raw_message = raw_input('Enter your message: ')
+            if len(raw_message) > 64:
+                print("Message too long. Try again.")
+                raw_message = ""
+
+        # Calculate Checksum
+        sum = checksum_add(0x0D, 0x4A)
+        sum = checksum_add(sum, 0x6f)
+        sum = checksum_add(sum, 0x79)
+        sum = checksum_add(sum, 0x21)
+        sum = checksum_add(sum, 0xFF)
+        sum = checksum_add(sum, new_rid)
+        sum = checksum_add(sum, this_rid)
+        for letter in raw_message:
+            sum = checksum_add(sum, byte_to_int(letter))
 
         # TODO: Send message to node
         s_send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         s_send.connect((next_slave_pretty, int(10010 + master_gid * 5 + this_rid - 1)))
-        new_message = ''.join(chr(x) for x in [0xD, 0x4A, 0x6F, 0x79, 0x21])  # This GID, Magic Number
+        new_message = ''.join(chr(x) for x in [0x0D, 0x4A, 0x6F, 0x79, 0x21])  # This GID, Magic Number
         new_message = new_message + ''.join(chr(x) for x in [0xFF])  # TTL
         new_message = new_message + ''.join(chr(x) for x in new_rid) # RID Destination
         new_message = new_message + ''.join(chr(x) for x in this_rid)  # RID Source
-        new_message = new_message + ''.join(chr(x) for x in [])  # Message
-        new_message = new_message + ''.join(chr(x) for x in [])  # Checksum
+        new_message = new_message + ''.join(chr(x) for x in raw_message)  # Message
+        new_message = new_message + ''.join(chr(x) for x in sum)  # Checksum
 
     else:
         # Forwarding server
@@ -90,6 +106,14 @@ def main(argv):
                 # TODO: Forward any other packet with TTL > 1
                 s_forward = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 s_forward.connect((next_slave_pretty, int(10010 + master_gid * 5 + this_rid - 1)))
+
+def checksum_add(arg1, arg2):
+    sum = arg1 + arg2
+    if sum > 0xFF:
+        sum = sum - 0x100
+        sum = sum + 0x1
+    return sum
+
 
 
 if __name__ == '__main__':
