@@ -14,7 +14,8 @@ It then sends the message throughout the ring, and if a node with the given ID i
 If the message returns to the node after sending it, it discards the message.
 
 # Compiling
-To compile the Master, you type `g++ Master.cpp -o Master` into the command line of a Linux machine with G++.
+To compile the Master, you type `g++ Master.cpp -o Master -std=c++11` into the command line of a Linux machine with G++.
+The std tag is necessary, as some of our code is written with functionality from C++ 2011.
 
 As the Slave is written in Python, a scripting language, no compilation is necessary.
 
