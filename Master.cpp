@@ -158,14 +158,14 @@ int main(int argc, char *argv[])
 
         // loop through all the results and bind to the first we can
         for(pUDP = servinfoUDP; pUDP != NULL; pUDP = pUDP->ai_next) {
-            if ((sockfdUDP = socket(pUDP->ai_family, pUDP->ai_socktype,
+            if ((sock_fdUDP = socket(pUDP->ai_family, pUDP->ai_socktype,
                                  pUDP->ai_protocol)) == -1) {
                 perror("ServerUDP: socket");
                 continue;
             }
 
-            if (bind(sockfdUDP, pUDP->ai_addr, pUDP->ai_addrlen) == -1) {
-                close(sockfdUDP);
+            if (bind(sock_fdUDP, pUDP->ai_addr, pUDP->ai_addrlen) == -1) {
+                close(sock_fdUDP);
                 perror("ServerUDP: bind");
                 continue;
             }
@@ -391,6 +391,7 @@ void promptForMessage() {
 
 void sendMessage(int rID, const std::string& message) {
     //send message to nextSlaveIP with rID and the message
+
 }
 
 void listenForMessages() {
