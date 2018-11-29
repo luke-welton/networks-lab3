@@ -391,7 +391,12 @@ void promptForMessage() {
 
 void sendMessage(int rID, const std::string& message) {
     //send message to nextSlaveIP with rID and the message
-
+    char *sendBuffer = intsToBytes(responseTML, responseRequestID, responseErrCode, responseResult);
+        if ((numbytes = sendto(sockfd, sendBuffer, 7, 0,
+                               p->ai_addr, p->ai_addrlen)) == -1) {
+            perror("Master: sendto");
+            exit(1);
+        }
 }
 
 void listenForMessages() {
