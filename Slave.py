@@ -47,8 +47,6 @@ def main(argv):
     # Threading
     new_ref = os.fork()
     if new_ref == 0:
-        s_send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        s_send.connect((next_slave_pretty, int(10010 + master_gid * 5 + this_rid - 1)))
         while True:
             # Prompt user for a ring ID and message
             new_rid = ""
@@ -86,7 +84,10 @@ def main(argv):
             new_message = new_message + ''.join(chr(x) for x in raw_message)  # Message
             new_message = new_message + ''.join(chr(x) for x in sum)  # Checksum
 
+            s_send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s_send.connect((next_slave_pretty, int(10010 + master_gid * 5 + this_rid - 1)))
             s_send.sendall(new_message)
+            s_send.close()
 
     else:
         # Forwarding server
