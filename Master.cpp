@@ -323,7 +323,7 @@ void promptForMessage() {
         } while (!valid);
 
 
-        unsigned int messageLength = 9 + (int) message.length();
+        unsigned int messageLength = 9 + (unsigned int) message.length();
         char toSend[messageLength];
 
         toSend[0] = GROUPID;
@@ -333,11 +333,15 @@ void promptForMessage() {
         toSend[4] = MAGIC_NUMBER & 0xFF;
         toSend[6] = ringToSend;
         toSend[7] = MASTERRID;
+        toSend[8] = 0xFF;
 
-        //TODO: add message to toSend
+        for (unsigned i = 0; i < messageLength; i++) {
+            toSend[9 + i] = message[i];
+        }
 
-        toSend[messageLength - 1] = calculateChecksum(toSend, messageLength);
-        break;
+        toSend[messageLength - 1] = calculateChecksum(toSend, messageLength - 1);
+
+        sendMessage(ringToSend, message);
     }
 }
 
