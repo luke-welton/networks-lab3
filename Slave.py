@@ -103,25 +103,44 @@ def main(argv):
             in_check = incoming_message[len(incoming_message) - 1]
 
             # TODO: Validate checksum
+            sum = checksum_add(int(incoming_message[0]), int(incoming_message[1]))
+            sum = checksum_add(sum, byte_to_int(incoming_message[2]))
+            sum = checksum_add(sum, byte_to_int(incoming_message[3]))
+            sum = checksum_add(sum, byte_to_int(incoming_message[4]))
+            sum = checksum_add(sum, byte_to_int(incoming_message[5]))
+            sum = checksum_add(sum, byte_to_int(incoming_message[6]))
+            sum = checksum_add(sum, byte_to_int(incoming_message[7]))
+            for i in range(8, len(incoming_message) - 1):
+                sum = checksum_add(sum, byte_to_int(incoming_message[i]))
 
-            if in_dest == this_rid:  # Display any message addressed to this node
-                print(str(in_msg))
-            elif in_ttl > 1:
-                in_ttl = in_ttl - 1
-                # TODO: Recalculate checksum
+            if sum == in_check:
+                if in_dest == this_rid:  # Display any message addressed to this node
+                    print(str(in_msg))
+                elif in_ttl > 1:
+                    in_ttl = in_ttl - 1
+                    # Recalculate checksum
+                    new_sum = checksum_add(int(incoming_message[0]), int(incoming_message[1]))
+                    new_sum = checksum_add(new_sum, byte_to_int(incoming_message[2]))
+                    new_sum = checksum_add(new_sum, byte_to_int(incoming_message[3]))
+                    new_sum = checksum_add(new_sum, byte_to_int(incoming_message[4]))
+                    new_sum = checksum_add(new_sum, byte_to_int(incoming_message[5]) - 1)
+                    new_sum = checksum_add(new_sum, byte_to_int(incoming_message[6]))
+                    new_sum = checksum_add(new_sum, byte_to_int(incoming_message[7]))
+                    for i in range(8, len(incoming_message) - 1):
+                        new_sum = checksum_add(new_sum, byte_to_int(incoming_message[i]))
 
-                # TODO: Forward any other packet with TTL > 1
-                forward = ''.join(chr(x) for x in in_gid)
-                forward = forward + ''.join(chr(x) for x in in_magic)
-                forward = forward + ''.join(chr(x) for x in in_ttl)
-                forward = forward + ''.join(chr(x) for x in in_dest)
-                forward = forward + ''.join(chr(x) for x in in_src)
-                forward = forward + ''.join(chr(x) for x in in_msg)
-                forward = forward + ''.join(chr(x) for x in in_check)
+                    # Forward any other packet with TTL > 1
+                    forward = ''.join(chr(x) for x in in_gid)
+                    forward = forward + ''.join(chr(x) for x in in_magic)
+                    forward = forward + ''.join(chr(x) for x in in_ttl)
+                    forward = forward + ''.join(chr(x) for x in in_dest)
+                    forward = forward + ''.join(chr(x) for x in in_src)
+                    forward = forward + ''.join(chr(x) for x in in_msg)
+                    forward = forward + ''.join(chr(x) for x in new_sum)
 
-                s_forward = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-                s_forward.connect((next_slave_pretty, int(10010 + master_gid * 5 + this_rid - 1)))
-                s_forward.sendall(forward)
+                    s_forward = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                    s_forward.connect((next_slave_pretty, int(10010 + master_gid * 5 + this_rid - 1)))
+                    s_forward.sendall(forward)
 
 def checksum_add(arg1, arg2):
     sum = arg1 + arg2
