@@ -41,6 +41,7 @@ def main(argv):
     print("My Ring ID: ", this_rid)
     print("Next Slave: ", next_slave_pretty)
 
+    # TODO: Add threading!
     # Prompt user for a ring ID and message
     new_rid = ""
     while new_rid == "":
@@ -55,7 +56,12 @@ def main(argv):
     # TODO: Send message to node
     s_send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     s_send.connect((next_slave_pretty, int(10010 + master_gid * 5 + this_rid - 1)))
-    new_message = ''.join(chr(x) for x in [13, 0x4A, 0x6F, 0x79, 0x21])  # This GID, Magic Number
+    new_message = ''.join(chr(x) for x in [0xD, 0x4A, 0x6F, 0x79, 0x21])  # This GID, Magic Number
+    new_message = new_message + ''.join(chr(x) for x in [])  # TTL
+    new_message = new_message + ''.join(chr(x) for x in new_rid) # RID Destination
+    new_message = new_message + ''.join(chr(x) for x in this_rid)  # RID Source
+    new_message = new_message + ''.join(chr(x) for x in [])  # Message
+    new_message = new_message + ''.join(chr(x) for x in [])  # Checksum
 
     # Forwarding server
     s_server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
