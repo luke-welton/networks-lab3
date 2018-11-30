@@ -344,7 +344,7 @@ unsigned char* getOwnIP() {
 void promptForMessage(int sockfd, addrinfo *pUDP) {
     while (true) {
         std::string message;
-        unsigned char ringToSend = 0;
+        unsigned int nodeToSend = 0;
 
         bool valid = true;
         do {
@@ -357,12 +357,12 @@ void promptForMessage(int sockfd, addrinfo *pUDP) {
             }
 
             if (valid) {
-                std::cout << "Please enter the rID of the ring to send the message to: ";
-                std::cin >> ringToSend;
+                std::cout << "Please enter the rID of the node to send the message to: ";
+                std::cin >> nodeToSend;
             }
 
-            if (ringToSend >= nextRID) {
-                std::cout << "There is no ring with that rID.\n\n";
+            if (nodeToSend >= nextRID) {
+                std::cout << "There is no node with that rID.\n\n";
                 valid = false;
             }
         } while (!valid);
@@ -376,7 +376,7 @@ void promptForMessage(int sockfd, addrinfo *pUDP) {
         toSend[2] = MAGIC_NUMBER >> 16 & 0xFF;
         toSend[3] = MAGIC_NUMBER >> 8 & 0xFF;
         toSend[4] = MAGIC_NUMBER & 0xFF;
-        toSend[6] = ringToSend;
+        toSend[6] = nodeToSend;
         toSend[7] = MASTER_RID;
         toSend[8] = 0xFF;
 
