@@ -44,8 +44,8 @@ void addSlave(unsigned char slaveIP[], int slaveSocketFD);
 unsigned char* getOwnIP();
 
 void promptForMessage();
-void sendMessage(int rID, const std::string& message);
-void listenForMessages();
+void sendMessage(const char *message);
+void listenForMessages(int sockFD, sockaddr_storage *their_addr);
 
 unsigned char nextSlaveIP[4];
 unsigned char nextRID;
@@ -67,19 +67,19 @@ void *get_in_addr(struct sockaddr *sa)
 
 int main(int argc, char *argv[])
 {
-    int sockfd, new_fd;  // listen on sock_fd, new connection on new_fd
-    struct addrinfo hints, *servinfo, *p;
-    struct sockaddr_storage their_addr; // connector's address information
+    int sockfdTCP, sock_fdUDP, new_fdTCP, new_fdUDP;  // listen on sock_fd, new connection on new_fd
+    struct addrinfo hintsTCP, hintsUDP, *servinfoTCP, *servinfoUDP, *pTCP, *pUDP;
+    struct sockaddr_storage their_addrTCP, their_addrUDP; // connector's address information
     socklen_t sin_size;
     struct sigaction sa;
     int yes=1;
 
-    char s[INET6_ADDRSTRLEN];
+    char sTCP[INET6_ADDRSTRLEN], sUDP[INET6_ADDRSTRLEN];
     char message[5];
-    int rv;
+    int rvTCP, rvUDP;
 
-    int numbytes;
-    char buf[MAXDATASIZE];
+    int numbytesTCP, numbytesUDP;
+    char tcpBuf[MAXDATASIZE];
 
     //check for command line args with port number
     if (argc != 2)
@@ -88,39 +88,35 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
+    memset(&hintsTCP, 0, sizeof hintsTCP);
+
     initialize();
-    //this thread listens for datagrams from previous node
-    std::thread listenerThread (listenForMessages);
-    //this thread asks user for message to send and a destination node
-    //this will continue to happen for the life of the master.
-    std::thread promptingUserThread (promptForMessage);
 
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags = AI_PASSIVE; // use my IP
+    hintsTCP.ai_family = AF_UNSPEC;
+    hintsTCP.ai_socktype = SOCK_STREAM;
+    hintsTCP.ai_flags = AI_PASSIVE; // use my IP
 
-    if ((rv = getaddrinfo(NULL, argv[1], &hints, &servinfo)) != 0) {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+    if ((rvTCP = getaddrinfo(NULL, argv[1], &hintsTCP, &servinfoTCP)) != 0) {
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rvTCP));
         return 1;
     }
 
     // loop through all the results and bind to the first we can
-    for(p = servinfo; p != NULL; p = p->ai_next) {
-        if ((sockfd = socket(p->ai_family, p->ai_socktype,
-                             p->ai_protocol)) == -1) {
+    for(pTCP = servinfoTCP; pTCP != NULL; pTCP = pTCP->ai_next) {
+        if ((sockfdTCP = socket(pTCP->ai_family, pTCP->ai_socktype,
+                             pTCP->ai_protocol)) == -1) {
             perror("server: socket");
             continue;
         }
 
-        if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes,
+        if (setsockopt(sockfdTCP, SOL_SOCKET, SO_REUSEADDR, &yes,
                        sizeof(int)) == -1) {
             perror("setsockopt");
             exit(1);
         }
 
-        if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
-            close(sockfd);
+        if (bind(sockfdTCP, pTCP->ai_addr, pTCP->ai_addrlen) == -1) {
+            close(sockfdTCP);
             perror("server: bind");
             continue;
         }
@@ -128,14 +124,14 @@ int main(int argc, char *argv[])
         break;
     }
 
-    if (p == NULL)  {
+    if (pTCP == NULL)  {
         fprintf(stderr, "server: failed to bind\n");
         return 2;
     }
 
-    freeaddrinfo(servinfo); // all done with this structure
+    freeaddrinfo(servinfoTCP); // all done with this structure
 
-    if (listen(sockfd, BACKLOG) == -1) {
+    if (listen(sockfdTCP, BACKLOG) == -1) {
         perror("listen");
         exit(1);
     }
@@ -149,21 +145,68 @@ int main(int argc, char *argv[])
     }
 
     printf("server: waiting for connections...\n");
+////////////////////////////////////////////////////////////////////////////////
+//////////////////////////UDP server code here//////////////////////////////////
+    memset(&hintsUDP, 0, sizeof hintsUDP);
+    hintsUDP.ai_family = AF_UNSPEC; // set to AF_INET to force IPv4
+    hintsUDP.ai_socktype = SOCK_DGRAM;
+    hintsUDP.ai_flags = AI_PASSIVE; // use my IP
+    if ((rvUDP = getaddrinfo(NULL, argv[1] , &hintsUDP, &servinfoUDP)) != 0) {
+            fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rvUDP));
+            return 1;
+        }
+
+        // loop through all the results and bind to the first we can
+        for(pUDP = servinfoUDP; pUDP != NULL; pUDP = pUDP->ai_next) {
+            if ((sock_fdUDP = socket(pUDP->ai_family, pUDP->ai_socktype,
+                                 pUDP->ai_protocol)) == -1) {
+                perror("ServerUDP: socket");
+                continue;
+            }
+
+            if (bind(sock_fdUDP, pUDP->ai_addr, pUDP->ai_addrlen) == -1) {
+                close(sock_fdUDP);
+                perror("ServerUDP: bind");
+                continue;
+            }
+
+            break;
+        }
+
+        if (pUDP == NULL) {
+            fprintf(stderr, "ServerUDP: failed to bind socket\n");
+            return 2;
+        }
+
+        freeaddrinfo(servinfoUDP);
+
+
+
+
+
+//this thread listens for datagrams from previous node
+std::thread listenerThread (listenForMessages);
+//this thread asks user for message to send and a destination node
+//this will continue to happen for the life of the master.
+std::thread promptingUserThread (promptForMessage);
+///////////////////////END UDP//////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
 
     while(1) {  // main accept() loop
-        sin_size = sizeof their_addr;
-        new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-        if (new_fd == -1) {
+        sin_size = sizeof their_addrTCP;
+        new_fdTCP = accept(sockfdTCP, (struct sockaddr *)&their_addrTCP, &sin_size);
+        if (new_fdTCP == -1) {
             perror("accept");
             continue;
         }
 
-        inet_ntop(their_addr.ss_family,
-                  get_in_addr((struct sockaddr *)&their_addr),
-                  s, sizeof s);
-        printf("server: got connection from %s\n", s);
+        inet_ntop(their_addrTCP.ss_family,
+                  get_in_addr((struct sockaddr *)&their_addrTCP),
+                  sTCP, sizeof sTCP);
+        printf("server: got connection from %s\n", sTCP);
 
-        int message_length = recvfrom(new_fd, message, sizeof(message), 0, (struct sockaddr*) &their_addr, &sin_size);
+        int message_length = recvfrom(new_fdTCP, message, sizeof(message), 0, (struct sockaddr*) &their_addrTCP, &sin_size);
 
         if (message_length == -1) {
             printf("Something went wrong while receiving a message from the connection.");
@@ -174,13 +217,13 @@ int main(int argc, char *argv[])
         if (message[1] != 0x4A || message[2] != 0x6F || message[3] != 0x79 || message[4] != 0x21) {
             printf("The connection's message was incorrect or was corrupted.");
         } else {
-            struct sockaddr_in *sockIn = (struct sockaddr_in *) &their_addr;
+            struct sockaddr_in *sockIn = (struct sockaddr_in *) &their_addrTCP;
 
             unsigned char slaveIP[4];
             for (unsigned i = 4; i > 0; i--) {
                 slaveIP[4 - i] = (unsigned char) (sockIn->sin_addr.s_addr >> (8 * (4 - i)));
             }
-            addSlave(slaveIP, new_fd);
+            addSlave(slaveIP, new_fdTCP);
         }
 
         //once we have one slave in the ring...
@@ -192,23 +235,23 @@ int main(int argc, char *argv[])
           // GID 0X4A6F7921 TTL RIDDest RIDSource Messagem Checksum
         }
         if (!fork()) {
-            close(sockfd);
+            close(sockfdTCP);
 
-            if ((numbytes = recv(new_fd, buf, MAXDATASIZE-1, 0)) == -1) {
+            if ((numbytesTCP = recv(new_fdTCP, tcpBuf, MAXDATASIZE-1, 0)) == -1) {
                 perror("recv");
                 exit(1);
             }
 
-            buf[numbytes] = '\0';
+            tcpBuf[numbytesTCP] = '\0';
 
-            printf("Server: received '%s'\n",buf);
+            printf("Server: received '%s'\n",tcpBuf);
 
-            displayBuffer(buf,numbytes);
+            displayBuffer(tcpBuf,numbytesTCP);
 
-            close(new_fd);
+            close(new_fdTCP);
             exit(0);
         }
-        close(new_fd);  // parent doesn't need this
+        close(new_fdTCP);  // parent doesn't need this
     }
 }
 unsigned char calculateChecksum(char *dgmIn, int dgmLen) {
@@ -249,7 +292,6 @@ void initialize() {
     for (unsigned i = 0; i < 4; i++) {
         nextSlaveIP[i] = ownIP[i];
     }
-
     nextRID = MASTERRID;
 }
 
@@ -329,7 +371,7 @@ void promptForMessage() {
         } while (!valid);
 
 
-        unsigned int messageLength = 9 + (int) message.length();
+        unsigned int messageLength = 9 + (unsigned int) message.length();
         char toSend[messageLength];
 
         toSend[0] = GROUPID;
@@ -339,19 +381,34 @@ void promptForMessage() {
         toSend[4] = MAGIC_NUMBER & 0xFF;
         toSend[6] = ringToSend;
         toSend[7] = MASTERRID;
+        toSend[8] = 0xFF;
 
-        //TODO: add message to toSend
+        for (unsigned i = 0; i < messageLength; i++) {
+            toSend[9 + i] = message[i];
+        }
 
-        toSend[messageLength - 1] = calculateChecksum(toSend, messageLength);
-        break;
+        toSend[messageLength - 1] = calculateChecksum(toSend, messageLength - 1);
+
+        const char* m = message.c_str();
+        sendMessage(m);
     }
 }
 
-void sendMessage(int rID, const std::string& message) {
+void sendMessage(const char *message) {
     //send message to nextSlaveIP with rID and the message
+    int responseTML = sizeof(message);
+    char *sendBuffer = intsToBytes(responseTML, responseRequestID, responseErrCode, responseResult);
+        if ((numbytes = sendto(sockfd, sendBuffer, 7, 0,
+                               pUDP->ai_addr, pUDP->ai_addrlen)) == -1) {
+            perror("Master: sendto");
+            exit(1);
+        }
 }
 
-void listenForMessages() {
+void listenForMessages(int sockFD, sockaddr_storage *their_addr) {
+    char message[MAXDATASIZE];
+    int numBytes;
+
     while (true) {
         //listen for messages
         //once one is received:
@@ -359,5 +416,43 @@ void listenForMessages() {
             //otherwise decrement it
             //if the rID = MASTERRID, display the message
             //if not, send it to nextSlaveIP via sendMessage
+
+        int addr_len = sizeof their_addr;
+        if ((numBytes = recvfrom(sockFD, message, MAXDATASIZE - 1, 0,
+                                 (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+            perror("recvfrom");
+            exit(1);
+        }
+
+        bool valid = true;
+        for (unsigned i = 0; i < 4; i++) {
+            if (message[1 + i] != MAGIC_NUMBER >> (3 - i) & 0xFF) {
+                valid = false;
+            }
+        }
+
+        if (message[numBytes - 1] != calculateChecksum(message, numBytes - 1)) {
+            valid = false;
+        }
+
+        if (valid) {
+            if (message[6] == MASTERRID) {
+                char messageToDisplay[numBytes - 8];
+                for (unsigned i = 0; i < numBytes - 9; i++) {
+                    messageToDisplay[i] = message[8 + i];
+                }
+                messageToDisplay[numBytes - 9] = '\0';
+
+                std::cout << messageToDisplay << std::endl;
+            } else {
+                auto ttl = (unsigned char) message[5];
+                ttl--;
+
+                if (ttl > 0) {
+                    message[5] = ttl;
+                    sendMessage(message);
+                }
+            }
+        }
     }
 }
