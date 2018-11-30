@@ -213,11 +213,10 @@ std::thread promptingUserThread (promptForMessage, sock_fdUDP, pUDP);
             exit(0);
         }
 
-        displayBuffer(message, 5);
         if (message[1] != 0x4A || message[2] != 0x6F || message[3] != 0x79 || message[4] != 0x21) {
             printf("The connection's message was incorrect or was corrupted.");
         } else {
-            struct sockaddr_in *sockIn = (struct sockaddr_in *) &their_addrTCP;
+            auto *sockIn = (struct sockaddr_in *) &their_addrTCP;
 
             unsigned char slaveIP[4];
             for (unsigned i = 4; i > 0; i--) {
@@ -303,7 +302,6 @@ void addSlave(unsigned char slaveIP[], int slaveSocketFD) {
          exit(0);
     }
 
-
     nextRID++;
 }
 
@@ -383,10 +381,7 @@ void promptForMessage(int sockfd, addrinfo *pUDP) {
 }
 
 void sendMessage(const char *message, int sockfd, addrinfo *pUDP) {
-    //send message to nextSlaveIP with rID and the message
-    int numbytes = 0;
-    if ((numbytes = sendto(sockfd, message, sizeof(message), 0,
-                           pUDP->ai_addr, pUDP->ai_addrlen)) == -1) {
+    if (send(sockfd, message, sizeof(message), 0) == -1) {
         perror("Master: sendto");
         exit(1);
     }
@@ -395,11 +390,8 @@ void sendMessage(const char *message, int sockfd, addrinfo *pUDP) {
 void listenForMessages(int sockFD, addrinfo *pUDP) {
     char message[MAX_DATA_SIZE];
     int numBytes;
-    struct sockaddr_storage their_addr;
     while (true) {
-        socklen_t addr_len = sizeof their_addr;
-        if ((numBytes = recvfrom(sockFD, message, MAX_DATA_SIZE - 1, 0,
-                                 (struct sockaddr *)&their_addr, &addr_len)) == -1) {
+        if ((numBytes = (int) recv(sockFD, message, MAX_DATA_SIZE - 1, 0)) == -1) {
             perror("recvfrom");
             exit(1);
         }
