@@ -14,6 +14,8 @@
 #include <string>
 #include <iostream>
 #include <thread>
+#include <type_traits>
+#include <typeinfo>
 
 #define MASTER_RID 0
 #define BACKLOG 10	 // how many pending connections queue will hold
@@ -42,9 +44,9 @@ void displayBuffer(char *Buffer, int length);
 void addSlave(unsigned char slaveIP[], int slaveSocketFD);
 unsigned char* getOwnIP();
 
-void promptForMessage(int sockfd, addrinfo *pUDP);
-void sendMessage(const char *message, int sockfd, addrinfo *pUDP);
-void listenForMessages(int sockFD, addrinfo *pUDP);
+void promptForMessage(int sockfd, addrinfo *pUDP, sockaddr *addr);
+void sendMessage(const char *message, int sockfd, addrinfo *pUDP, sockaddr *addr);
+void listenForMessages(int sockFD, addrinfo *pUDP, sockaddr *addr);
 
 unsigned char nextSlaveIP[4];
 unsigned char nextRID;
@@ -74,7 +76,7 @@ int main(int argc, char *argv[])
     struct sigaction sa;
     int yes=1;
 
-    char sTCP[INET6_ADDRSTRLEN];
+    char sTCP[INET_ADDRSTRLEN];
     char message[5];
     int rvTCP, rvUDP;
 
@@ -174,12 +176,12 @@ int main(int argc, char *argv[])
             return 2;
         }
         freeaddrinfo(servinfoUDP);
-
+        struct sockaddr *addr = (struct sockaddr) &their_addrTCP;
 //this thread listens for datagrams from previous node
-std::thread listenerThread (listenForMessages, sock_fdUDP, pUDP);
+std::thread listenerThread (listenForMessages, sock_fdUDP, pUDP, addr);
 //this thread asks user for message to send and a destination node
 //this will continue to happen for the life of the master.
-std::thread promptingUserThread (promptForMessage, sock_fdUDP, pUDP);
+std::thread promptingUserThread (promptForMessage, sock_fdUDP, pUDP, addr);
 ///////////////////////END UDP//////////////////////////////////////////////////
 
     while(1) {  // main accept() loop
@@ -294,7 +296,7 @@ unsigned char* getOwnIP() {
     return ptr;
 }
 
-void promptForMessage(int sockfd, addrinfo *pUDP) {
+void promptForMessage(int sockfd, addrinfo *pUDP, sockaddr *addr) {
     while (true) {
         std::string message;
         unsigned int nodeToSend = 0;
@@ -341,23 +343,29 @@ void promptForMessage(int sockfd, addrinfo *pUDP) {
 
         //displayBuffer(toSend, messageLength);
 
-        sendMessage(toSend, sockfd, pUDP);
+        sendMessage(toSend, sockfd, pUDP, addr);
     }
 }
 
-void sendMessage(const char *message, int sockfd, addrinfo *pUDP) {
-    const struct sockaddr *addr = pUDP->ai_addr;
-    socklen_t len = pUDP->ai_addrlen;
-    std::cout << &addr << '\n';
+void sendMessage(const char *message, int sockfd, addrinfo *pUDP, sockaddr *addr) {
+    //const struct sockaddr *addr = pUDP->ai_addr;
+    //struct sockaddr_in *test = (struct sockaddr_in *)addr;
+    socklen_t len = sizeof(addr);//pUDP->ai_addrlen;
+    char ipaddress[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, addr, ipaddress, INET_ADDRSTRLEN);
+
+    std::cout << typeid(addr).name() << '\n';
+    std::cout << sockfd << '\n';
+    std::cout << ipaddress << '\n';
     std::cout << len << '\n';
     std::cout << message << '\n' << sizeof(message) << '\n';
-    if (sendto(sockfd, (const void *) message, sizeof(message), 0, addr, len) == -1) {
+    if (sendto(sockfd, (const void *) message, (size_t)sizeof(message), 0, addr, len) == -1) {
         perror("Master: sendto");
         exit(1);
     }
 }
 
-void listenForMessages(int sockFD, addrinfo *pUDP) {
+void listenForMessages(int sockFD, addrinfo *pUDP, sockaddr *addr) {
     char message[MAX_DATA_SIZE];
     int numBytes;
     struct sockaddr_storage their_addr;
@@ -368,6 +376,7 @@ void listenForMessages(int sockFD, addrinfo *pUDP) {
             perror("recvfrom");
             exit(1);
         }
+        displayBuffer(message, numBytes);
 
         bool valid = true;
         for (unsigned i = 0; i < 4; i++) {
@@ -395,7 +404,7 @@ void listenForMessages(int sockFD, addrinfo *pUDP) {
 
                 if (ttl > 0) {
                     message[5] = ttl;
-                    sendMessage(message, sockFD, pUDP);
+                    sendMessage(message, sockFD, pUDP, addr);
                 }
             }
         }
