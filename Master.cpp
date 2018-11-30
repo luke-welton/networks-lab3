@@ -380,14 +380,13 @@ void promptForMessage(int sockfd, addrinfo *pUDP) {
         toSend[7] = MASTER_RID;
         toSend[8] = 0xFF;
 
-        for (unsigned i = 0; i < messageLength; i++) {
+        for (unsigned i = 0; i < message.length(); i++) {
             toSend[9 + i] = message[i];
         }
 
         toSend[messageLength - 1] = calculateChecksum(toSend, messageLength - 1);
 
-        const char* m = message.c_str();
-        sendMessage(m, sockfd, pUDP);
+        sendMessage(toSend, sockfd, pUDP);
     }
 }
 
