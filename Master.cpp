@@ -44,8 +44,8 @@ void addSlave(unsigned char slaveIP[], int slaveSocketFD);
 unsigned char* getOwnIP();
 
 void promptForMessage();
-void sendMessage(int rID, const std::string& message);
-void listenForMessages();
+void sendMessage(char *message);
+void listenForMessages(int sockFD, sockaddr_storage *their_addr);
 
 unsigned char nextSlaveIP[4];
 unsigned char nextRID;
@@ -70,7 +70,7 @@ int main(int argc, char *argv[])
     int sockfdTCP, sock_fdUDP, new_fdTCP, new_fdUDP;  // listen on sock_fd, new connection on new_fd
     struct addrinfo hintsTCP, hintsUDP, *servinfoTCP, *servinfoUDP, *pTCP, *pUDP;
     struct sockaddr_storage their_addrTCP, their_addrUDP; // connector's address information
-    socklen_t sin_size, addr_len;
+    socklen_t sin_size;
     struct sigaction sa;
     int yes=1;
 
@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     int rvTCP, rvUDP;
 
     int numbytesTCP, numbytesUDP;
-    char tcpBuf[MAXDATASIZE], udpBuf[MAXDATASIZE];
+    char tcpBuf[MAXDATASIZE];
 
     //check for command line args with port number
     if (argc != 2)
@@ -393,11 +393,14 @@ void promptForMessage() {
     }
 }
 
-void sendMessage(int rID, const std::string& message) {
+void sendMessage(char *message) {
     //send message to nextSlaveIP with rID and the message
 }
 
-void listenForMessages() {
+void listenForMessages(int sockFD, sockaddr_storage *their_addr) {
+    char message[MAXDATASIZE];
+    int numBytes;
+
     while (true) {
         //listen for messages
         //once one is received:
@@ -405,21 +408,43 @@ void listenForMessages() {
             //otherwise decrement it
             //if the rID = MASTERRID, display the message
             //if not, send it to nextSlaveIP via sendMessage
-        printf("\n >>>> Master: listening for a datagram...\n");
 
-        addr_len = sizeof their_addr;
-        if ((numbytesUDP = recvfrom(sockfd, buf, MAXBUFLEN-1 , 0,
+        int addr_len = sizeof their_addr;
+        if ((numBytes = recvfrom(sockFD, message, MAXDATASIZE - 1, 0,
                                  (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             perror("recvfrom");
             exit(1);
         }
-        printf("Master: got packet from %s\n",
-               inet_ntop(their_addr.ss_family,
-                         get_in_addr((struct sockaddr *)&their_addr),
-                         s, sizeof s));
-        printf("Master: packet is %d bytes long\n", numbytes);
-        buf[numbytes] = '\0';
-        printf("Master: packet contains \"%s\"\n", buf);
-        displayBuffer(buf,numbytes);
+
+        bool valid = true;
+        for (unsigned i = 0; i < 4; i++) {
+            if (message[1 + i] != MAGIC_NUMBER >> (3 - i) & 0xFF) {
+                valid = false;
+            }
+        }
+
+        if (message[numBytes - 1] != calculateChecksum(message, numBytes - 1)) {
+            valid = false;
+        }
+
+        if (valid) {
+            if (message[6] == MASTERRID) {
+                char messageToDisplay[numBytes - 8];
+                for (unsigned i = 0; i < numBytes - 9; i++) {
+                    messageToDisplay[i] = message[8 + i];
+                }
+                messageToDisplay[numBytes - 9] = '\0';
+
+                printf(std::str(messageToDisplay))
+            } else {
+                auto ttl = (unsigned char) message[5];
+                ttl--;
+
+                if (ttl > 0) {
+                    message[5] = ttl;
+                    sendMessage(message);
+                }
+            }
+        }
     }
 }
