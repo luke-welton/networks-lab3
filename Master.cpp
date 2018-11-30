@@ -15,10 +15,10 @@
 #include <iostream>
 #include <thread>
 
-#define MASTERRID 0
+#define MASTER_RID 0
 #define BACKLOG 10	 // how many pending connections queue will hold
-#define MAXDATASIZE 100
-#define GROUPID 13
+#define MAX_DATA_SIZE 100
+#define GROUP_ID 13
 #define MAGIC_NUMBER 0x4A6F7921
 
 /*
@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     int rvTCP, rvUDP;
 
     int numbytesTCP, numbytesUDP;
-    char tcpBuf[MAXDATASIZE];
+    char tcpBuf[MAX_DATA_SIZE];
 
     //check for command line args with port number
     if (argc != 2)
@@ -227,7 +227,7 @@ std::thread promptingUserThread (promptForMessage);
         }
 
         //once we have one slave in the ring...
-        if (nextRID != MASTERRID) {
+        if (nextRID != MASTER_RID) {
           //TODO: Watch for messages from ring.
           //TODO: Prompt user for message and RID
           //TODO: take user input and send message to nextSlaveIP of information
@@ -237,7 +237,7 @@ std::thread promptingUserThread (promptForMessage);
         if (!fork()) {
             close(sockfdTCP);
 
-            if ((numbytesTCP = recv(new_fdTCP, tcpBuf, MAXDATASIZE-1, 0)) == -1) {
+            if ((numbytesTCP = recv(new_fdTCP, tcpBuf, MAX_DATA_SIZE-1, 0)) == -1) {
                 perror("recv");
                 exit(1);
             }
@@ -292,12 +292,12 @@ void initialize() {
     for (unsigned i = 0; i < 4; i++) {
         nextSlaveIP[i] = ownIP[i];
     }
-    nextRID = MASTERRID;
+    nextRID = MASTER_RID + 1;
 }
 
 void addSlave(unsigned char slaveIP[], int slaveSocketFD) {
     char toSend[10];
-    toSend[0] = GROUPID;
+    toSend[0] = GROUP_ID;
     toSend[1] = MAGIC_NUMBER >> 24 & 0xFF;
     toSend[2] = MAGIC_NUMBER >> 16 & 0xFF;
     toSend[3] = MAGIC_NUMBER >> 8 & 0xFF;
@@ -374,13 +374,13 @@ void promptForMessage() {
         unsigned int messageLength = 9 + (unsigned int) message.length();
         char toSend[messageLength];
 
-        toSend[0] = GROUPID;
+        toSend[0] = GROUP_ID;
         toSend[1] = MAGIC_NUMBER >> 24 & 0xFF;
         toSend[2] = MAGIC_NUMBER >> 16 & 0xFF;
         toSend[3] = MAGIC_NUMBER >> 8 & 0xFF;
         toSend[4] = MAGIC_NUMBER & 0xFF;
         toSend[6] = ringToSend;
-        toSend[7] = MASTERRID;
+        toSend[7] = MASTER_RID;
         toSend[8] = 0xFF;
 
         for (unsigned i = 0; i < messageLength; i++) {
@@ -406,19 +406,12 @@ void sendMessage(const char *message) {
 }
 
 void listenForMessages(int sockFD, sockaddr_storage *their_addr) {
-    char message[MAXDATASIZE];
+    char message[MAX_DATA_SIZE];
     int numBytes;
 
     while (true) {
-        //listen for messages
-        //once one is received:
-            //if the messages' TTL is 0, discard the message
-            //otherwise decrement it
-            //if the rID = MASTERRID, display the message
-            //if not, send it to nextSlaveIP via sendMessage
-
         int addr_len = sizeof their_addr;
-        if ((numBytes = recvfrom(sockFD, message, MAXDATASIZE - 1, 0,
+        if ((numBytes = recvfrom(sockFD, message, MAX_DATA_SIZE - 1, 0,
                                  (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             perror("recvfrom");
             exit(1);
@@ -436,14 +429,14 @@ void listenForMessages(int sockFD, sockaddr_storage *their_addr) {
         }
 
         if (valid) {
-            if (message[6] == MASTERRID) {
+            if (message[6] == MASTER_RID) {
                 char messageToDisplay[numBytes - 8];
                 for (unsigned i = 0; i < numBytes - 9; i++) {
                     messageToDisplay[i] = message[8 + i];
                 }
                 messageToDisplay[numBytes - 9] = '\0';
 
-                std::cout << messageToDisplay << std::endl;
+                std::cout << "Message received:\n" << messageToDisplay << std::endl;
             } else {
                 auto ttl = (unsigned char) message[5];
                 ttl--;
