@@ -343,7 +343,10 @@ void promptForMessage(int sockfd, addrinfo *pUDP) {
 }
 
 void sendMessage(const char *message, int sockfd, addrinfo *pUDP) {
-    if (send(sockfd, message, sizeof(message), 0) == -1) {
+    const struct sockaddr *addr = pUDP->ai_addr;
+    socklen_t len = pUDP->ai_addrlen;
+
+    if (sendto(sockfd, (const void *) message, sizeof(message), 0, addr, len) == -1) {
         perror("Master: sendto");
         exit(1);
     }
@@ -352,8 +355,11 @@ void sendMessage(const char *message, int sockfd, addrinfo *pUDP) {
 void listenForMessages(int sockFD, addrinfo *pUDP) {
     char message[MAX_DATA_SIZE];
     int numBytes;
+    struct sockaddr_storage their_addr;
     while (true) {
-        if ((numBytes = (int) recv(sockFD, message, MAX_DATA_SIZE - 1, 0)) == -1) {
+        socklen_t addr_len = sizeof their_addr;
+        if ((numBytes = recvfrom(sockFD, message, MAX_DATA_SIZE - 1, 0,
+                                 (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             perror("recvfrom");
             exit(1);
         }
