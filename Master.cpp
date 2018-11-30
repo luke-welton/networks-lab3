@@ -396,12 +396,13 @@ void promptForMessage() {
 
 void sendMessage(const char *message) {
     //send message to nextSlaveIP with rID and the message
-//    char *sendBuffer = intsToBytes(responseTML, responseRequestID, responseErrCode, responseResult);
-//        if ((numbytes = sendto(sockfd, sendBuffer, 7, 0,
-//                               p->ai_addr, p->ai_addrlen)) == -1) {
-//            perror("Master: sendto");
-//            exit(1);
-//        }
+    int responseTML = sizeof(message);
+    char *sendBuffer = intsToBytes(responseTML, responseRequestID, responseErrCode, responseResult);
+        if ((numbytes = sendto(sockfd, sendBuffer, 7, 0,
+                               pUDP->ai_addr, pUDP->ai_addrlen)) == -1) {
+            perror("Master: sendto");
+            exit(1);
+        }
 }
 
 void listenForMessages(int sockFD, sockaddr_storage *their_addr) {
