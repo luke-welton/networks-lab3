@@ -59,6 +59,7 @@ void *get_in_addr(struct sockaddr *sa)
 {
     if (sa->sa_family == AF_INET) {
         return &(((struct sockaddr_in*)sa)->sin_addr);
+        std::cout << "IPV4" << '\n';
     }
 
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
@@ -345,7 +346,9 @@ void promptForMessage(int sockfd, addrinfo *pUDP) {
 void sendMessage(const char *message, int sockfd, addrinfo *pUDP) {
     const struct sockaddr *addr = pUDP->ai_addr;
     socklen_t len = pUDP->ai_addrlen;
-
+    std::cout << &addr << '\n';
+    std::cout << len << '\n';
+    std::cout << message << '\n' << sizeof(message) << '\n';
     if (sendto(sockfd, (const void *) message, sizeof(message), 0, addr, len) == -1) {
         perror("Master: sendto");
         exit(1);
