@@ -226,14 +226,6 @@ std::thread promptingUserThread (promptForMessage, sock_fdUDP, pUDP);
             addSlave(slaveIP, new_fdTCP);
         }
 
-        //once we have one slave in the ring...
-        if (nextRID != MASTER_RID) {
-          //TODO: Watch for messages from ring.
-          //TODO: Prompt user for message and RID
-          //TODO: take user input and send message to nextSlaveIP of information
-          // 1B  4B         1B  1B      1B        up to 64B  1B
-          // GID 0X4A6F7921 TTL RIDDest RIDSource Messagem Checksum
-        }
         if (!fork()) {
             close(sockfdTCP);
 
@@ -289,7 +281,7 @@ void initialize() {
     for (unsigned i = 0; i < 4; i++) {
         nextSlaveIP[i] = ownIP[i];
     }
-    nextRID = MASTER_RID + 1;
+    nextRID = 1;
 }
 
 void addSlave(unsigned char slaveIP[], int slaveSocketFD) {
