@@ -44,7 +44,7 @@ void addSlave(unsigned char slaveIP[], int slaveSocketFD);
 unsigned char* getOwnIP();
 
 void promptForMessage();
-void sendMessage(char *message);
+void sendMessage(const char *message);
 void listenForMessages(int sockFD, sockaddr_storage *their_addr);
 
 unsigned char nextSlaveIP[4];
@@ -389,18 +389,19 @@ void promptForMessage() {
 
         toSend[messageLength - 1] = calculateChecksum(toSend, messageLength - 1);
 
-        sendMessage(ringToSend, message);
+        const char* m = message.c_str();
+        sendMessage(m);
     }
 }
 
-void sendMessage(char *message) {
+void sendMessage(const char *message) {
     //send message to nextSlaveIP with rID and the message
-    char *sendBuffer = intsToBytes(responseTML, responseRequestID, responseErrCode, responseResult);
-        if ((numbytes = sendto(sockfd, sendBuffer, 7, 0,
-                               p->ai_addr, p->ai_addrlen)) == -1) {
-            perror("Master: sendto");
-            exit(1);
-        }
+//    char *sendBuffer = intsToBytes(responseTML, responseRequestID, responseErrCode, responseResult);
+//        if ((numbytes = sendto(sockfd, sendBuffer, 7, 0,
+//                               p->ai_addr, p->ai_addrlen)) == -1) {
+//            perror("Master: sendto");
+//            exit(1);
+//        }
 }
 
 void listenForMessages(int sockFD, sockaddr_storage *their_addr) {
@@ -441,7 +442,7 @@ void listenForMessages(int sockFD, sockaddr_storage *their_addr) {
                 }
                 messageToDisplay[numBytes - 9] = '\0';
 
-                printf(std::str(messageToDisplay))
+                std::cout << messageToDisplay << std::endl;
             } else {
                 auto ttl = (unsigned char) message[5];
                 ttl--;
