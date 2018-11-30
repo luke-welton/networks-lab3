@@ -71,6 +71,9 @@ def main(argv):
                 if len(raw_message) > 64:
                     print("Message too long. Try again.")
                     raw_message = ""
+            message_array = []
+            for letter in raw_message:
+                message_array.append(letter.encode("hex"))
 
             # Calculate Checksum
             sum = checksum_add(0x0D, 0x4A)
@@ -80,18 +83,18 @@ def main(argv):
             sum = checksum_add(sum, 0xFF)
             sum = checksum_add(sum, new_rid)
             sum = checksum_add(sum, this_rid)
-            for letter in raw_message:
+            for letter in message_array:
                 sum = checksum_add(sum, byte_to_int(letter))
 
             # Send message to node
 
             new_message = ''.join(chr(x) for x in [0x0D, 0x4A, 0x6F, 0x79, 0x21])  # This GID, Magic Number
             new_message = new_message + ''.join(chr(x) for x in [0xFF])  # TTL
-            new_message = new_message + ''.join(chr(x) for x in int_to_byte(new_rid, 1)) # RID Destination
-            new_message = new_message + ''.join(chr(x) for x in int_to_byte(this_rid, 1))  # RID Source
-            new_message = new_message + ''.join(chr(x) for x in raw_message)  # Message
-            new_message = new_message + ''.join(chr(x) for x in int_to_byte(sum, 1))  # Checksum
-
+            new_message = new_message + ''.join(chr(x) for x in int_to_byte(new_rid, 2)) # RID Destination
+            new_message = new_message + ''.join(chr(x) for x in int_to_byte(this_rid, 2))  # RID Source
+            new_message = new_message + raw_message
+            new_message = new_message + ''.join(chr(x) for x in int_to_byte(sum, 2))  # Checksum
+            print("Sending to ", next_slave_pretty)
             s_send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s_send.connect((next_slave_pretty, int(10010 + master_gid * 5 + this_rid - 1)))
             s_send.sendall(new_message)
@@ -103,7 +106,12 @@ def main(argv):
         s_server.bind(('', int(10010 + master_gid * 5 + this_rid)))
 
         while True:
-            incoming_message, address = s_server.recvfrom(4096)
+            print("Waiting for forwarded messages.")
+            incoming, address = s_server.recvfrom(4096)
+            print(address)
+            incoming_message = []
+            for letter in incoming:
+                incoming_message.append(letter.encode("hex"))
             in_gid = incoming_message[0]
             in_magic = str(incoming_message[1]) + str(incoming_message[2]) + str(incoming_message[3]) + str(incoming_message[4])
             in_ttl = byte_to_int(incoming_message[5])
@@ -114,8 +122,11 @@ def main(argv):
                 in_msg = in_msg + incoming_message[i]
             in_check = incoming_message[len(incoming_message) - 1]
 
+            for byte in incoming_message:
+                print(byte_to_int(byte))
+
             # Validate checksum
-            sum = checksum_add(int(incoming_message[0]), int(incoming_message[1]))
+            sum = checksum_add(byte_to_int(incoming_message[0]), byte_to_int(incoming_message[1]))
             sum = checksum_add(sum, byte_to_int(incoming_message[2]))
             sum = checksum_add(sum, byte_to_int(incoming_message[3]))
             sum = checksum_add(sum, byte_to_int(incoming_message[4]))
@@ -125,13 +136,16 @@ def main(argv):
             for i in range(8, len(incoming_message) - 1):
                 sum = checksum_add(sum, byte_to_int(incoming_message[i]))
 
+            print(sum, "==", in_check)
             if sum == in_check:
+                print("Dest: ", in_dest)
+                print("This RID: ", this_rid)
                 if in_dest == this_rid:  # Display any message addressed to this node
                     print(str(in_msg))
                 elif in_ttl > 1:
                     in_ttl = in_ttl - 1
                     # Recalculate checksum
-                    new_sum = checksum_add(int(incoming_message[0]), int(incoming_message[1]))
+                    new_sum = checksum_add(byte_to_int(incoming_message[0]), byte_to_int(incoming_message[1]))
                     new_sum = checksum_add(new_sum, byte_to_int(incoming_message[2]))
                     new_sum = checksum_add(new_sum, byte_to_int(incoming_message[3]))
                     new_sum = checksum_add(new_sum, byte_to_int(incoming_message[4]))
