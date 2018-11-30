@@ -108,10 +108,8 @@ def main(argv):
         while True:
             print("Waiting for forwarded messages.")
             incoming, address = s_server.recvfrom(4096)
-            print(incoming)
             incoming_message = []
             for letter in incoming:
-                print(letter)
                 incoming_message.append(letter)
             in_gid = incoming_message[0]
             in_magic = str(incoming_message[1]) + str(incoming_message[2]) + str(incoming_message[3]) + str(incoming_message[4])
@@ -134,10 +132,8 @@ def main(argv):
             for i in range(8, len(incoming_message) - 1):
                 sum = checksum_add(sum, byte_to_int(incoming_message[i]))
 
-            print(sum, "==", in_check)
             if sum == byte_to_int(in_check):
-                print("Dest: ", in_dest)
-                print("This RID: ", this_rid)
+
                 if in_dest == this_rid:  # Display any message addressed to this node
                     print(str(in_msg))
                 elif in_ttl > 1:
