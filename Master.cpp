@@ -67,18 +67,18 @@ void *get_in_addr(struct sockaddr *sa)
 
 int main(int argc, char *argv[])
 {
-    int sockfdTCP, sock_fdUDP, new_fdTCP, new_fdUDP;  // listen on sock_fd, new connection on new_fd
+    int sockfdTCP, sock_fdUDP, new_fdTCP;  // listen on sock_fd, new connection on new_fd
     struct addrinfo hintsTCP, hintsUDP, *servinfoTCP, *servinfoUDP, *pTCP, *pUDP;
     struct sockaddr_storage their_addrTCP; // connector's address information
     socklen_t sin_size;
     struct sigaction sa;
     int yes=1;
 
-    char sTCP[INET6_ADDRSTRLEN], sUDP[INET6_ADDRSTRLEN];
+    char sTCP[INET6_ADDRSTRLEN];
     char message[5];
     int rvTCP, rvUDP;
 
-    int numbytesTCP, numbytesUDP;
+    int numbytesTCP;
     char tcpBuf[MAX_DATA_SIZE];
 
     //check for command line args with port number
@@ -223,24 +223,6 @@ std::thread promptingUserThread (promptForMessage, sock_fdUDP, pUDP);
                 slaveIP[4 - i] = (unsigned char) (sockIn->sin_addr.s_addr >> (8 * (4 - i)));
             }
             addSlave(slaveIP, new_fdTCP);
-        }
-
-        if (!fork()) {
-            close(sockfdTCP);
-
-            if ((numbytesTCP = recv(new_fdTCP, tcpBuf, MAX_DATA_SIZE-1, 0)) == -1) {
-                perror("recv");
-                exit(1);
-            }
-
-            tcpBuf[numbytesTCP] = '\0';
-
-            printf("Server: received '%s'\n",tcpBuf);
-
-            displayBuffer(tcpBuf,numbytesTCP);
-
-            close(new_fdTCP);
-            exit(0);
         }
         close(new_fdTCP);  // parent doesn't need this
     }
