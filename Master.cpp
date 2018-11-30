@@ -39,7 +39,6 @@
  */
 unsigned char calculateChecksum(char *dgmIn, int dgmLen);
 void displayBuffer(char *Buffer, int length);
-void initialize();
 void addSlave(unsigned char slaveIP[], int slaveSocketFD);
 unsigned char* getOwnIP();
 
@@ -78,9 +77,6 @@ int main(int argc, char *argv[])
     char message[5];
     int rvTCP, rvUDP;
 
-    int numbytesTCP;
-    char tcpBuf[MAX_DATA_SIZE];
-
     //check for command line args with port number
     if (argc != 2)
     {
@@ -89,8 +85,12 @@ int main(int argc, char *argv[])
     }
 
     memset(&hintsTCP, 0, sizeof hintsTCP);
-
-    initialize();
+    //initialize global values
+    unsigned char* ownIP = getOwnIP();
+    for (unsigned i = 0; i < 4; i++) {
+        nextSlaveIP[i] = ownIP[i];
+    }
+    nextRID = 1;
 
     hintsTCP.ai_family = AF_UNSPEC;
     hintsTCP.ai_socktype = SOCK_STREAM;
@@ -120,7 +120,6 @@ int main(int argc, char *argv[])
             perror("server: bind");
             continue;
         }
-
         break;
     }
 
@@ -143,9 +142,8 @@ int main(int argc, char *argv[])
         perror("sigaction");
         exit(1);
     }
-
     printf("server: waiting for connections...\n");
-////////////////////////////////////////////////////////////////////////////////
+
 //////////////////////////UDP server code here//////////////////////////////////
     memset(&hintsUDP, 0, sizeof hintsUDP);
     hintsUDP.ai_family = AF_UNSPEC; // set to AF_INET to force IPv4
@@ -163,26 +161,18 @@ int main(int argc, char *argv[])
                 perror("ServerUDP: socket");
                 continue;
             }
-
             if (bind(sock_fdUDP, pUDP->ai_addr, pUDP->ai_addrlen) == -1) {
                 close(sock_fdUDP);
                 perror("ServerUDP: bind");
                 continue;
             }
-
             break;
         }
-
         if (pUDP == NULL) {
             fprintf(stderr, "ServerUDP: failed to bind socket\n");
             return 2;
         }
-
         freeaddrinfo(servinfoUDP);
-
-
-
-
 
 //this thread listens for datagrams from previous node
 std::thread listenerThread (listenForMessages, sock_fdUDP, pUDP);
@@ -190,8 +180,6 @@ std::thread listenerThread (listenForMessages, sock_fdUDP, pUDP);
 //this will continue to happen for the life of the master.
 std::thread promptingUserThread (promptForMessage, sock_fdUDP, pUDP);
 ///////////////////////END UDP//////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
 
     while(1) {  // main accept() loop
         sin_size = sizeof their_addrTCP;
@@ -255,14 +243,6 @@ void displayBuffer(char *Buffer, int length){
         printf("\n");
     }
     printf("\n\n");
-}
-
-void initialize() {
-    unsigned char* ownIP = getOwnIP();
-    for (unsigned i = 0; i < 4; i++) {
-        nextSlaveIP[i] = ownIP[i];
-    }
-    nextRID = 1;
 }
 
 void addSlave(unsigned char slaveIP[], int slaveSocketFD) {
