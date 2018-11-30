@@ -77,7 +77,7 @@ def main(argv):
 
             # Calculate Checksum
             sum = checksum_add(0x0D, 0x4A)
-            sum = checksum_add(sum, 0x6f)
+            sum = checksum_add(sum, 0x6F)
             sum = checksum_add(sum, 0x79)
             sum = checksum_add(sum, 0x21)
             sum = checksum_add(sum, 0xFF)
@@ -165,9 +165,9 @@ def main(argv):
 
 def checksum_add(arg1, arg2):
     sum = arg1 + arg2
-    if sum > 0xFF:
-        sum = sum - 0x100
-        sum = sum + 0x1
+    mod_sum = sum % 256
+    sum = sum >> 8
+    sum = mod_sum + sum
     return sum
 
 

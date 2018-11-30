@@ -329,15 +329,17 @@ void promptForMessage(int sockfd, addrinfo *pUDP) {
         toSend[2] = MAGIC_NUMBER >> 16 & 0xFF;
         toSend[3] = MAGIC_NUMBER >> 8 & 0xFF;
         toSend[4] = MAGIC_NUMBER & 0xFF;
-        toSend[6] = nodeToSend;
+        toSend[5] = (char) 0xFF;
+        toSend[6] = (char) nodeToSend;
         toSend[7] = MASTER_RID;
-        toSend[8] = 0xFF;
 
         for (unsigned i = 0; i < message.length(); i++) {
-            toSend[9 + i] = message[i];
+            toSend[8 + i] = message[i];
         }
 
         toSend[messageLength - 1] = calculateChecksum(toSend, messageLength - 1);
+
+        //displayBuffer(toSend, messageLength);
 
         sendMessage(toSend, sockfd, pUDP);
     }
