@@ -385,7 +385,7 @@ void promptForMessage(int sockfd, addrinfo *pUDP) {
 void sendMessage(const char *message, int sockfd, addrinfo *pUDP) {
     //send message to nextSlaveIP with rID and the message
     int numbytes = 0;
-    if ((numbytes = sendto(sockfd, message, 7, 0,
+    if ((numbytes = sendto(sockfd, message, sizeof(message), 0,
                            pUDP->ai_addr, pUDP->ai_addrlen)) == -1) {
         perror("Master: sendto");
         exit(1);
