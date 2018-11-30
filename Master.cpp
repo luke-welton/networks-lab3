@@ -43,9 +43,9 @@ void initialize();
 void addSlave(unsigned char slaveIP[], int slaveSocketFD);
 unsigned char* getOwnIP();
 
-void promptForMessage();
-void sendMessage(const char *message);
-void listenForMessages(int sockFD, sockaddr_storage *their_addr);
+void promptForMessage(int sockfd, addrinfo *pUDP);
+void sendMessage(const char *message, int sockfd, addrinfo *pUDP);
+void listenForMessages(int sockFD, addrinfo *pUDP);
 
 unsigned char nextSlaveIP[4];
 unsigned char nextRID;
@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
 {
     int sockfdTCP, sock_fdUDP, new_fdTCP, new_fdUDP;  // listen on sock_fd, new connection on new_fd
     struct addrinfo hintsTCP, hintsUDP, *servinfoTCP, *servinfoUDP, *pTCP, *pUDP;
-    struct sockaddr_storage their_addrTCP, their_addrUDP; // connector's address information
+    struct sockaddr_storage their_addrTCP; // connector's address information
     socklen_t sin_size;
     struct sigaction sa;
     int yes=1;
@@ -185,10 +185,10 @@ int main(int argc, char *argv[])
 
 
 //this thread listens for datagrams from previous node
-std::thread listenerThread (listenForMessages);
+std::thread listenerThread (listenForMessages, sock_fdUDP, pUDP);
 //this thread asks user for message to send and a destination node
 //this will continue to happen for the life of the master.
-std::thread promptingUserThread (promptForMessage);
+std::thread promptingUserThread (promptForMessage, sock_fdUDP, pUDP);
 ///////////////////////END UDP//////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -260,13 +260,10 @@ unsigned char calculateChecksum(char *dgmIn, int dgmLen) {
   //get a running sum with overflow accounted for.
   for (int i = 0; i < dgmLen; i++) {
     sum += dgmIn[i];
-    //printf("%x\n", sum);
   }
   //add high order overflow bits to low order bits
   result = (sum & 0xFF) + (sum >> 8);
-  //printf("%x\n", result);
   result = ~result;
-  //printf("%x\n", result);
   return result;
 }
 void displayBuffer(char *Buffer, int length){
@@ -344,7 +341,7 @@ unsigned char* getOwnIP() {
     return ptr;
 }
 
-void promptForMessage() {
+void promptForMessage(int sockfd, addrinfo *pUDP) {
     while (true) {
         std::string message;
         unsigned char ringToSend = 0;
@@ -390,27 +387,26 @@ void promptForMessage() {
         toSend[messageLength - 1] = calculateChecksum(toSend, messageLength - 1);
 
         const char* m = message.c_str();
-        sendMessage(m);
+        sendMessage(m, sockfd, pUDP);
     }
 }
 
-void sendMessage(const char *message) {
+void sendMessage(const char *message, int sockfd, addrinfo *pUDP) {
     //send message to nextSlaveIP with rID and the message
-    int responseTML = sizeof(message);
-    char *sendBuffer = intsToBytes(responseTML, responseRequestID, responseErrCode, responseResult);
-        if ((numbytes = sendto(sockfd, sendBuffer, 7, 0,
-                               pUDP->ai_addr, pUDP->ai_addrlen)) == -1) {
-            perror("Master: sendto");
-            exit(1);
-        }
+    int numbytes = 0;
+    if ((numbytes = sendto(sockfd, message, 7, 0,
+                           pUDP->ai_addr, pUDP->ai_addrlen)) == -1) {
+        perror("Master: sendto");
+        exit(1);
+    }
 }
 
-void listenForMessages(int sockFD, sockaddr_storage *their_addr) {
+void listenForMessages(int sockFD, addrinfo *pUDP) {
     char message[MAX_DATA_SIZE];
     int numBytes;
-
+    struct sockaddr_storage their_addr;
     while (true) {
-        int addr_len = sizeof their_addr;
+        socklen_t addr_len = sizeof their_addr;
         if ((numBytes = recvfrom(sockFD, message, MAX_DATA_SIZE - 1, 0,
                                  (struct sockaddr *)&their_addr, &addr_len)) == -1) {
             perror("recvfrom");
@@ -443,7 +439,7 @@ void listenForMessages(int sockFD, sockaddr_storage *their_addr) {
 
                 if (ttl > 0) {
                     message[5] = ttl;
-                    sendMessage(message);
+                    sendMessage(message, sockFD, pUDP);
                 }
             }
         }
