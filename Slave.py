@@ -3,6 +3,7 @@
 import socket
 import sys
 import os
+from ctypes import *
 
 
 def byte_to_int(byte):
@@ -19,6 +20,7 @@ def int_to_byte(value, length):
 
     result.reverse()
     return result
+
 
 def main(argv):
     try:
@@ -57,13 +59,13 @@ def main(argv):
     if new_ref == 0:
         while True:
             # Prompt user for a ring ID and message
-            new_rid = ""
-            while new_rid == "":
+            new_rid = -1
+            while new_rid == -1:
                 raw_rid = raw_input('Enter a Ring ID: ')
                 try:
                     new_rid = int(raw_rid)
                 except:
-                    new_rid = ""
+                    new_rid = -1
                     print("Invalid Ring ID")
             raw_message = ""
             while raw_message == "":
@@ -76,24 +78,26 @@ def main(argv):
                 message_array.append(letter.encode("hex"))
 
             # Calculate Checksum
-            sum = checksum_add(0x0D, 0x4A)
-            sum = checksum_add(sum, 0x6F)
-            sum = checksum_add(sum, 0x79)
-            sum = checksum_add(sum, 0x21)
-            sum = checksum_add(sum, 0xFF)
-            sum = checksum_add(sum, new_rid)
-            sum = checksum_add(sum, this_rid)
-            for letter in message_array:
-                sum = checksum_add(sum, byte_to_int(letter))
+            dgram = ""
+            dgram += str(0x0D)
+            dgram += str(0x4A)
+            dgram += str(0x6F)
+            dgram += str(0x79)
+            dgram += str(0x21)
+            dgram += str(0xFF)
+            dgram += str(new_rid)
+            dgram += str(this_rid)
+            dgram += str(raw_message)
+            sum = calc_checksum(dgram)
 
             # Send message to node
 
             new_message = ''.join(chr(x) for x in [0x0D, 0x4A, 0x6F, 0x79, 0x21])  # This GID, Magic Number
             new_message = new_message + ''.join(chr(x) for x in [0xFF])  # TTL
-            new_message = new_message + ''.join(chr(x) for x in int_to_byte(new_rid, 2)) # RID Destination
-            new_message = new_message + ''.join(chr(x) for x in int_to_byte(this_rid, 2))  # RID Source
+            new_message = new_message + ''.join(chr(x) for x in int_to_byte(new_rid, 1))  # RID Destination
+            new_message = new_message + ''.join(chr(x) for x in int_to_byte(this_rid, 1))  # RID Source
             new_message = new_message + raw_message
-            new_message = new_message + ''.join(chr(x) for x in int_to_byte(sum, 2))  # Checksum
+            new_message = new_message + ''.join(chr(x) for x in int_to_byte(sum, 1))  # Checksum
             print("Sending to ", next_slave_pretty)
             s_send = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s_send.connect((next_slave_pretty, int(10010 + master_gid * 5 + this_rid - 1)))
@@ -163,6 +167,7 @@ def main(argv):
                     s_forward.sendall(forward)
                     s_forward.close()
 
+
 def checksum_add(arg1, arg2):
     sum = arg1 + arg2
     mod_sum = sum % 256
@@ -170,6 +175,13 @@ def checksum_add(arg1, arg2):
     sum = mod_sum + sum
     return sum
 
+def calc_checksum(message):
+    checksum = 0
+    for i in range(0, len(message)):
+        checksum = checksum + ord(message[i])
+    checksum = ~(((checksum << 24) >> 24) + ((checksum << 16) >> 24))
+    checksum_final = c_ubyte(checksum)
+    return checksum_final.value
 
 if __name__ == '__main__':
 
